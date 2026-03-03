@@ -3,12 +3,15 @@ from datetime import datetime, timedelta
 import re
 
 
+
 class Field:
     def __init__(self, value):
         self.value = value
 
+
 class Name(Field):
     pass
+
 
 class Phone(Field):
     def __init__(self, value: str):
@@ -20,6 +23,7 @@ class Phone(Field):
     def formatted(self):
         return f"+{self.value}"
 
+
 class Birthday(Field):
     def __init__(self, value: str):
         if not value:
@@ -29,6 +33,7 @@ class Birthday(Field):
         except ValueError:
             raise ValueError("Invalid date format. Use DD.MM.YYYY")
         super().__init__(value)
+
 
 class Record:
     def __init__(self, name: str):
@@ -76,6 +81,7 @@ class AddressBook(UserDict):
         return upcoming
 
 
+
 def input_error(func):
     def wrapper(*args, **kwargs):
         try:
@@ -91,57 +97,55 @@ def input_error(func):
     return wrapper
 
 
+
 @input_error
 def add_contact(args, book: AddressBook):
-    if len(args) < 2:
-        raise IndexError("Please provide name and phone.")
-    name, phone = args[:2]
+    name, phone, *_ = args
     record = book.find(name)
+    message = "Contact updated."
     if record is None:
         record = Record(name)
         book.add_record(record)
         message = "Contact added."
-    else:
-        message = "Contact updated."
-    record.add_phone(phone)
+    if phone:
+        record.add_phone(phone)
     return message
+
 
 @input_error
 def change_contact(args, book: AddressBook):
-    if len(args) < 3:
-        raise IndexError("Please provide name, old phone, new phone.")
-    name, old_phone, new_phone = args[:3]
+    name, old_phone, new_phone, *_ = args
     record = book.find(name)
     if record.change_phone(old_phone, new_phone):
         return "Phone updated."
     return "Old phone not found."
 
+
 @input_error
 def show_phone(args, book: AddressBook):
-    if not args:
-        raise IndexError("Please provide a name.")
-    record = book.find(args[0])
+    name = args[0]
+    record = book.find(name)
     if not record or not record.phones:
         return "No phones found."
     return ", ".join(ph.formatted() for ph in record.phones)
 
+
 @input_error
 def add_birthday_handler(args, book: AddressBook):
-    if len(args) < 2:
-        raise IndexError("Please provide name and birthday.")
-    name, bday = args[:2]
+    name, bday, *_ = args
     record = book.find(name)
     record.add_birthday(bday)
     return f"Birthday for {name} added."
 
+
 @input_error
 def show_birthday(args, book: AddressBook):
-    if not args:
-        raise IndexError("Please provide a name.")
-    record = book.find(args[0])
-    if record and record.birthday:
-        return f"{record.name.value}'s birthday: {record.birthday.value}"
-    return f"{args[0]} has no birthday set."
+    name = args[0]
+    record = book.find(name)
+    if record.birthday:
+        return f"{name}'s birthday: {record.birthday.value}"
+    return f"{name} has no birthday set."
+
 
 @input_error
 def birthdays(args, book: AddressBook):
@@ -149,6 +153,7 @@ def birthdays(args, book: AddressBook):
     if not upcoming:
         return "No birthdays in the next 7 days."
     return "\n".join(f"{item['name']} - {item['birthday']}" for item in upcoming)
+
 
 @input_error
 def show_all(args, book: AddressBook):
@@ -162,11 +167,13 @@ def show_all(args, book: AddressBook):
     return "\n".join(result)
 
 
+
 def parse_input(user_input: str):
     tokens = user_input.strip().split()
     if not tokens:
         return None, []
     return tokens[0], tokens[1:]
+
 
 
 def main():
@@ -199,6 +206,7 @@ def main():
             print(birthdays(args, book))
         else:
             print("Invalid command.")
+
 
 if __name__ == "__main__":
     main()
