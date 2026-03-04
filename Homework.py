@@ -19,7 +19,7 @@ class Phone(Field):
             raise ValueError("Phone must contain exactly 10 digits.")
         super().__init__(value)
 
-    def formatted(self):
+    def __str__(self):
         return f"+{self.value}"
 
 
@@ -44,14 +44,19 @@ class Record:
         self.phones.append(Phone(phone))
 
     def change_phone(self, old_phone: str, new_phone: str):
-        for i, ph in enumerate(self.phones):
-            if ph.value == old_phone:
+        for i, phone in enumerate(self.phones):
+            if phone.value == old_phone:
                 self.phones[i] = Phone(new_phone)
                 return True
         return False
 
     def add_birthday(self, birthday: str):
         self.birthday = Birthday(birthday)
+
+    def __str__(self):
+        phones = ", ".join(str(p) for p in self.phones)
+        birthday = self.birthday.value if self.birthday else "-"
+        return f"{self.name.value}: {phones} | Birthday: {birthday}"
 
 
 class AddressBook(UserDict):
@@ -61,32 +66,33 @@ class AddressBook(UserDict):
     def find(self, name: str):
         return self.data.get(name)
 
-    def get_upcoming_birthdays(self, days_ahead: int = 7):
+    def get_upcoming_birthdays(self, days: int = 7):
         today = datetime.today().date()
-        upcoming = []
+        result = []
 
         for record in self.data.values():
             if record.birthday:
-                bday_date = datetime.strptime(
+                birthday_date = datetime.strptime(
                     record.birthday.value, "%d.%m.%Y"
                 ).date()
 
-                next_bday = bday_date.replace(year=today.year)
+                next_birthday = birthday_date.replace(year=today.year)
 
-                if next_bday < today:
-                    next_bday = next_bday.replace(year=today.year + 1)
+                if next_birthday < today:
+                    next_birthday = next_birthday.replace(year=today.year + 1)
 
-                if 0 <= (next_bday - today).days <= days_ahead:
+                delta = (next_birthday - today).days
 
-                    if next_bday.weekday() >= 5:
-                        next_bday += timedelta(days=(7 - next_bday.weekday()))
+                if 0 <= delta <= days:
+                    if next_birthday.weekday() >= 5:
+                        next_birthday += timedelta(days=7 - next_birthday.weekday())
 
-                    upcoming.append({
+                    result.append({
                         "name": record.name.value,
-                        "birthday": next_bday.strftime("%d.%m.%Y")
+                        "birthday": next_birthday.strftime("%d.%m.%Y")
                     })
 
-        return upcoming
+        return result
 
 
 def input_error(func):
@@ -95,17 +101,15 @@ def input_error(func):
             return func(*args, **kwargs)
         except IndexError:
             return "Not enough arguments provided."
-        except ValueError as ve:
-            return str(ve)
-        except KeyError:
-            return "Contact not found."
+        except ValueError as error:
+            return str(error)
         except AttributeError:
             return "Contact not found."
     return wrapper
 
 
 @input_error
-def add_contact(args, book: AddressBook):
+def add_contact(args, book):
     name, phone, *_ = args
     record = book.find(name)
 
@@ -121,43 +125,39 @@ def add_contact(args, book: AddressBook):
 
 
 @input_error
-def change_contact(args, book: AddressBook):
+def change_contact(args, book):
     name, old_phone, new_phone, *_ = args
     record = book.find(name)
 
     if record.change_phone(old_phone, new_phone):
         return "Phone updated."
-
     return "Old phone not found."
 
 
 @input_error
-def show_phone(args, book: AddressBook):
+def show_phone(args, book):
     name = args[0]
     record = book.find(name)
-
-    return ", ".join(ph.formatted() for ph in record.phones)
+    return ", ".join(str(phone) for phone in record.phones)
 
 
 @input_error
-def add_birthday_handler(args, book: AddressBook):
-    name, bday, *_ = args
+def add_birthday_handler(args, book):
+    name, birthday, *_ = args
     record = book.find(name)
-
-    record.add_birthday(bday)
-    return f"Birthday for {name} added."
+    record.add_birthday(birthday)
+    return "Birthday added."
 
 
 @input_error
-def show_birthday(args, book: AddressBook):
+def show_birthday(args, book):
     name = args[0]
     record = book.find(name)
-
-    return f"{name}'s birthday: {record.birthday.value}"
+    return record.birthday.value
 
 
 @input_error
-def birthdays(args, book: AddressBook):
+def birthdays(args, book):
     upcoming = book.get_upcoming_birthdays()
 
     if not upcoming:
@@ -170,27 +170,17 @@ def birthdays(args, book: AddressBook):
 
 
 @input_error
-def show_all(args, book: AddressBook):
+def show_all(args, book):
     if not book.data:
         return "Address book is empty."
-
-    result = []
-
-    for record in book.data.values():
-        phones = ", ".join(ph.formatted() for ph in record.phones)
-        bday = record.birthday.value if record.birthday else "-"
-        result.append(
-            f"{record.name.value}: {phones} | Birthday: {bday}"
-        )
-
-    return "\n".join(result)
+    return "\n".join(str(record) for record in book.data.values())
 
 
 def parse_input(user_input: str):
-    tokens = user_input.strip().split()
-    if not tokens:
+    parts = user_input.strip().split()
+    if not parts:
         return None, []
-    return tokens[0], tokens[1:]
+    return parts[0], parts[1:]
 
 
 def main():
@@ -206,10 +196,7 @@ def main():
 
         command, args = parse_input(user_input)
 
-        if command is None:
-            continue
-
-        if command in ["close", "exit"]:
+        if command in ("close", "exit"):
             print("Good bye!")
             break
         elif command == "hello":
